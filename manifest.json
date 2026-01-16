@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Gemini问题列表",
+  "description": "自动提取并展示Gemini对话中的问题列表，方便快速翻阅和定位",
+  "version": "1.0.0",
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://gemini.google.com/*",
+        "https://chat.openai.com/*",
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://kimi.moonshot.cn/*",
+        "https://tongyi.aliyun.com/*",
+        "https://yiyan.baidu.com/*",
+        "https://chat.deepseek.com/*",
+        "https://www.doubao.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

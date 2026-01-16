@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gemini问题列表</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <h1>💬 问题列表</h1>
+      <div class="header-actions">
+        <button id="refreshBtn" class="icon-btn" title="刷新">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+    
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="搜索问题..." />
+    </div>
+    
+    <div class="stats">
+      <span id="questionCount">0</span> 个问题
+    </div>
+    
+    <div id="questionList" class="question-list">
+      <div class="empty-state">
+        <p>暂无问题</p>
+        <p class="hint">在Gemini中提问后，问题将自动显示在这里</p>
+      </div>
+    </div>
+    
+    <footer class="footer">
+      <a href="#" id="clearBtn">清空记录</a>
+    </footer>
+  </div>
+  
+  <script src="popup.js"></script>
+</body>
+</html>
