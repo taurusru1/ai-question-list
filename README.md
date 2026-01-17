@@ -33,9 +33,17 @@
 ### 方法一：从源码安装（推荐）
 
 1. **下载项目**
+   
+   **GitHub:**
+   ```bash
+   git clone https://github.com/taurusru1/ai-question-list.git
+   ```
+   
+   **Gitee (国内用户推荐):**
    ```bash
    git clone git@gitee.com:taurusru1/ai-question-list.git
    ```
+   
    或者直接下载 ZIP 并解压
 
 2. **打开 Chrome 扩展管理页面**
