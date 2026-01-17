@@ -9,6 +9,12 @@
   // 存储键名
   const STORAGE_KEY = 'gemini_questions';
 
+  // 拖拽控制（全局，供多个事件处理器访问）
+  const dragControl = {
+    isDragging: false,
+    shouldStop: false
+  };
+
   // 创建侧边栏UI
   function createSidebar() {
     // 检查是否已存在
@@ -43,190 +49,238 @@
     style.textContent = `
       #gemini-helper-sidebar {
         position: fixed;
-        bottom: 20px;
-        right: 20px;
-        width: 200px;
-        height: 350px;
-        background: rgba(26, 26, 46, 0.85);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 16px;
+        bottom: 24px;
+        right: 24px;
+        width: 260px;
+        height: 400px;
+        background: rgba(248, 250, 252, 0.85); /* Slate-50 base */
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.5);
+        border-radius: 20px;
         z-index: 9999;
         display: flex;
         flex-direction: column;
-        font-family: 'Segoe UI', -apple-system, sans-serif;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.025);
         box-sizing: border-box;
+        overflow: hidden;
+        will-change: left, top, width, height;
       }
       #gemini-helper-sidebar * {
         box-sizing: border-box;
       }
+      
+      /* 侧边栏折叠状态 - 悬浮球样式 */
       #gemini-helper-sidebar.collapsed {
-        height: 48px;
-        width: 48px;
-        border-radius: 50%;
-        overflow: hidden;
+        height: 56px;
+        width: 56px;
+        border-radius: 28px;
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
+        border: 2px solid rgba(255, 255, 255, 0.4);
       }
       #gemini-helper-sidebar.collapsed .gh-header { 
-        border-radius: 50%;
-        cursor: move; /* 确保可拖动 */
-        padding: 0;
-        width: 100%; /* 填满父容器 */
         height: 100%;
-        justify-content: center;
+        width: 100%;
+        padding: 0;
+        background: transparent;
         border: none;
-        position: absolute; /* 覆盖在最上层 */
-        top: 0;
-        left: 0;
-        z-index: 2;
+        cursor: move;
       }
-      #gemini-helper-sidebar.collapsed .gh-title { display: none; }
+      #gemini-helper-sidebar.collapsed .gh-title,
+      #gemini-helper-sidebar.collapsed .gh-actions > button:not(#gh-toggle) { 
+        display: none; 
+      }
       #gemini-helper-sidebar.collapsed .gh-actions { 
         width: 100%;
         height: 100%;
         justify-content: center;
         align-items: center;
-      }
-      #gemini-helper-sidebar.collapsed #gh-refresh { display: none; }
-      #gemini-helper-sidebar.collapsed #gh-toggle { 
-        font-size: 20px;
+        margin: 0;
         padding: 0;
+      }
+      #gemini-helper-sidebar.collapsed #gh-toggle { 
+        font-size: 24px;
+        padding: 0;
+        margin: 0;
         background: transparent;
         width: 100%;
         height: 100%;
         display: flex;
         align-items: center;
         justify-content: center;
-        pointer-events: none; /* 让点击穿透到header处理拖动 */
+        color: #fff;
+        opacity: 1;
       }
       #gemini-helper-sidebar.collapsed .gh-search,
       #gemini-helper-sidebar.collapsed .gh-stats,
       #gemini-helper-sidebar.collapsed .gh-list { display: none; }
+
+      /* 头部样式 */
       .gh-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 12px 14px;
-        background: rgba(255,255,255,0.05);
-        border-bottom: 1px solid rgba(255,255,255,0.1);
-        border-radius: 12px 12px 0 0;
+        padding: 16px 18px;
+        background: rgba(255, 255, 255, 0.4);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.6);
         cursor: move;
         user-select: none;
       }
-      #gemini-helper-sidebar.dragging {
-        transition: none !important;
-        opacity: 0.9;
-      }
       .gh-title {
-        color: #fff;
-        font-size: 14px;
-        font-weight: 600;
+        color: #334155;
+        font-size: 15px;
+        font-weight: 700;
+        background: linear-gradient(to right, #334155, #64748b);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: -0.5px;
       }
+      
       .gh-actions { display: flex; gap: 6px; }
       .gh-actions button {
-        background: rgba(255,255,255,0.1);
-        border: none;
-        border-radius: 6px;
-        padding: 6px 8px;
-        cursor: pointer;
-        color: #a1a1aa;
-        font-size: 12px;
-        transition: all 0.2s;
-      }
-      .gh-actions button:hover {
-        background: rgba(66,133,244,0.3);
-        color: #fff;
-      }
-      #gh-toggle { transition: transform 0.3s; }
-      .gh-search {
-        padding: 8px 12px;
-      }
-      .gh-search input {
-        width: 100%;
-        padding: 6px 10px;
-        border: 1px solid rgba(255,255,255,0.1);
+        background: rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(0,0,0,0.05);
         border-radius: 8px;
-        background: rgba(0,0,0,0.2);
-        color: #fff;
-        font-size: 12px;
-        outline: none;
-        transition: all 0.2s;
-      }
-      .gh-search input:focus {
-        border-color: rgba(66,133,244,0.5);
-        background: rgba(0,0,0,0.3);
-      }
-      .gh-stats {
-        padding: 0 14px 8px;
-        font-size: 11px;
-        color: #71717a;
-      }
-      .gh-list {
-        flex: 1;
-        overflow-y: auto;
-        padding: 0 10px 10px;
-      }
-      .gh-list::-webkit-scrollbar { width: 3px; }
-      .gh-list::-webkit-scrollbar-thumb {
-        background: rgba(255,255,255,0.15);
-        border-radius: 3px;
-      }
-      .gh-item {
-        display: flex;
-        align-items: flex-start;
-        gap: 8px;
-        padding: 8px;
-        margin-bottom: 6px;
-        background: rgba(255,255,255,0.03);
-        border-radius: 8px;
-        cursor: pointer;
-        transition: all 0.2s;
-        border: 1px solid transparent;
-      }
-      .gh-item:hover {
-        background: rgba(255,255,255,0.08);
-        transform: translateX(2px);
-      }
-      .gh-num {
-        flex-shrink: 0;
-        width: 18px;
-        height: 18px;
-        background: rgba(66, 133, 244, 0.8);
-        border-radius: 4px;
+        width: 28px;
+        height: 28px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 10px;
-        font-weight: 600;
+        padding: 0;
+        cursor: pointer;
+        color: #64748b;
+        font-size: 14px;
+        transition: all 0.2s;
+      }
+      .gh-actions button:hover {
+        background: rgba(255, 255, 255, 0.9);
+        color: #4f46e5;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      }
+      
+      /* 搜索框 */
+      .gh-search {
+        padding: 12px 16px 8px;
+      }
+      .gh-search input {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.6);
+        color: #1e293b;
+        font-size: 13px;
+        outline: none;
+        transition: all 0.2s;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      }
+      .gh-search input:focus {
+        border-color: rgba(79, 70, 229, 0.5);
+        background: #fff;
+        box-shadow: 0 2px 8px rgba(79, 70, 229, 0.1);
+      }
+      
+      /* 统计 */
+      .gh-stats {
+        padding: 0 16px 8px;
+        font-size: 11px;
+        color: #64748b;
+        font-weight: 500;
+      }
+      
+      /* 列表 */
+      .gh-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 4px 12px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .gh-list::-webkit-scrollbar { width: 4px; }
+      .gh-list::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+      }
+      .gh-list::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 0, 0, 0.2);
+      }
+      
+      /* 列表项 */
+      .gh-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        padding: 10px;
+        margin-bottom: 0;
+        background: rgba(255, 255, 255, 0.5);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+      }
+      .gh-item:hover {
+        background: rgba(255, 255, 255, 0.9);
+        border-color: rgba(79, 70, 229, 0.3);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      }
+      .gh-num {
+        flex-shrink: 0;
+        width: 20px;
+        height: 20px;
+        background: linear-gradient(135deg, #4f46e5, #7c3aed);
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
         color: #fff;
+        box-shadow: 0 2px 6px rgba(79, 70, 229, 0.2);
       }
       .gh-text {
         flex: 1;
-        font-size: 11px;
-        line-height: 1.4;
-        color: rgba(255,255,255,0.8);
+        font-size: 12px;
+        line-height: 1.5;
+        color: #334155;
+        word-break: break-word;
       }
+      
+      /* 空状态 */
       .gh-empty {
         text-align: center;
-        color: #71717a;
+        color: #64748b;
         padding: 40px 20px;
         font-size: 13px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
       }
       .gh-empty small {
-        color: #52525b;
+        color: #94a3b8;
         font-size: 11px;
+        margin-top: 4px;
       }
-      .gh-empty {
-        text-align: center;
-        color: #71717a;
-        padding: 40px 20px;
-        font-size: 13px;
-      }
-      .gh-empty small {
-        color: #52525b;
-        font-size: 11px;
+      
+      /* ... (previous styles) ... */
+      
+      #gemini-helper-sidebar.dragging {
+        transition: none !important;
+        opacity: 0.95;
+        transform: scale(1.02);
+        cursor: grabbing;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15);
+        backdrop-filter: none;
+        -webkit-backdrop-filter: none;
       }
     `;
 
@@ -237,13 +291,20 @@
     // 绑定事件 - 点击toggle按钮切换
     document.getElementById('gh-toggle').addEventListener('click', (e) => {
       e.stopPropagation();
-      // 如果不在收缩状态，点击按钮可以收起
-      if (!sidebar.classList.contains('collapsed')) {
+      // 切换收缩/展开状态
+      if (sidebar.classList.contains('collapsed')) {
+        sidebar.classList.remove('collapsed');
+      } else {
         sidebar.classList.add('collapsed');
       }
     });
 
-    // 收起状态下点击header区域展开（由拖拽逻辑处理点击区分）
+    // 收缩状态下点击展开
+    sidebar.addEventListener('click', (e) => {
+      if (sidebar.classList.contains('collapsed')) {
+        sidebar.classList.remove('collapsed');
+      }
+    });
 
     document.getElementById('gh-refresh').addEventListener('click', () => {
       updateQuestionList();
@@ -263,12 +324,15 @@
     console.log('[AI问题列表] 侧边栏已创建');
   }
 
-  // 导出问题列表为Markdown文档
+  // 导出完整对话为Markdown文档（问答流格式）
   function exportQuestions() {
-    const questions = window._ghQuestions || extractQuestions();
+    const config = getSiteConfig();
 
-    if (questions.length === 0) {
-      alert('暂无问题可导出！');
+    // 提取所有对话消息（用户和AI）
+    const conversation = extractConversation(config);
+
+    if (conversation.length === 0) {
+      alert('暂无对话可导出！');
       return;
     }
 
@@ -287,14 +351,24 @@
     // 生成Markdown内容
     const now = new Date();
     const dateStr = now.toLocaleString('zh-CN');
+    const questionCount = conversation.filter(m => m.role === 'user').length;
 
-    let markdown = `# ${siteName} 对话问题记录\n\n`;
+    let markdown = `# ${siteName} 对话记录\n\n`;
     markdown += `> 导出时间：${dateStr}\n`;
-    markdown += `> 问题数量：${questions.length} 个\n\n`;
+    markdown += `> 对话轮数：${questionCount} 轮\n\n`;
     markdown += `---\n\n`;
 
-    questions.forEach((q, idx) => {
-      markdown += `## ${idx + 1}. ${q.text}\n\n`;
+    let turnNumber = 0;
+    conversation.forEach((msg) => {
+      if (msg.role === 'user') {
+        turnNumber++;
+        markdown += `## 🧑 问题 ${turnNumber}\n\n`;
+        markdown += `${msg.text}\n\n`;
+      } else {
+        markdown += `## 🤖 回答 ${turnNumber}\n\n`;
+        markdown += `${msg.text}\n\n`;
+        markdown += `---\n\n`;
+      }
     });
 
     // 创建并下载文件
@@ -302,28 +376,103 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${siteName}_问题记录_${now.toISOString().slice(0, 10)}.md`;
+    a.download = `${siteName}_对话记录_${now.toISOString().slice(0, 10)}.md`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
 
-    console.log('[AI问题列表] 已导出', questions.length, '个问题');
+    console.log('[AI问题列表] 已导出', questionCount, '轮对话');
   }
 
-  // 初始化拖拽功能
+  // 提取完整对话（用户问题和AI回答）
+  function extractConversation(config) {
+    const conversation = [];
+
+    // 获取所有用户消息元素
+    const userMessages = document.querySelectorAll(config.userQuery);
+    // 获取所有AI回答元素
+    const aiMessages = config.aiResponse ? document.querySelectorAll(config.aiResponse) : [];
+
+    // 尝试按DOM顺序交替提取
+    // 方案1：如果用户消息和AI消息数量匹配，直接配对
+    if (userMessages.length > 0 && aiMessages.length > 0) {
+      const allMessages = [];
+
+      // 收集所有消息及其位置
+      userMessages.forEach(el => {
+        const text = extractTextFromElement(el, config.textSelector);
+        if (text) {
+          allMessages.push({
+            element: el,
+            role: 'user',
+            text: text,
+            position: getElementPosition(el)
+          });
+        }
+      });
+
+      aiMessages.forEach(el => {
+        const text = extractTextFromElement(el, config.aiTextSelector);
+        if (text) {
+          allMessages.push({
+            element: el,
+            role: 'assistant',
+            text: text,
+            position: getElementPosition(el)
+          });
+        }
+      });
+
+      // 按DOM位置排序
+      allMessages.sort((a, b) => a.position - b.position);
+
+      // 返回排序后的对话
+      return allMessages.map(m => ({ role: m.role, text: m.text }));
+    }
+
+    // 方案2：只有用户消息，没有AI回答选择器匹配
+    userMessages.forEach(el => {
+      const text = extractTextFromElement(el, config.textSelector);
+      if (text) {
+        conversation.push({ role: 'user', text: text });
+      }
+    });
+
+    return conversation;
+  }
+
+  // 从元素中提取文本
+  function extractTextFromElement(element, textSelector) {
+    let text = '';
+    if (textSelector) {
+      const textElement = element.querySelector(textSelector);
+      text = textElement ? textElement.innerText.trim() : element.innerText.trim();
+    } else {
+      text = element.innerText.trim();
+    }
+    return text;
+  }
+
+  // 获取元素在文档中的位置（用于排序）
+  function getElementPosition(element) {
+    const rect = element.getBoundingClientRect();
+    return rect.top + window.scrollY;
+  }
+
+  // 初始化拖拽功能（只在展开状态下允许拖拽）
   function initDrag(sidebar) {
     const header = sidebar.querySelector('.gh-header');
     let isDragging = false;
-    let hasMoved = false;
     let startX, startY, startLeft, startTop;
 
     header.addEventListener('mousedown', (e) => {
-      // 展开状态下不拦截按钮点击
-      if (!sidebar.classList.contains('collapsed') && e.target.tagName === 'BUTTON') return;
+      // 收缩状态下不启动拖拽，让click事件处理展开
+      if (sidebar.classList.contains('collapsed')) return;
+      // 不拦截按钮点击
+      if (e.target.tagName === 'BUTTON') return;
 
       isDragging = true;
-      hasMoved = false;
       sidebar.classList.add('dragging');
 
       const rect = sidebar.getBoundingClientRect();
@@ -332,7 +481,6 @@
       startLeft = rect.left;
       startTop = rect.top;
 
-      // 防止文字选中
       e.preventDefault();
     });
 
@@ -342,18 +490,10 @@
       const deltaX = e.clientX - startX;
       const deltaY = e.clientY - startY;
 
-      // 只有移动超过一定距离才算是拖动，防止误触
-      if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) {
-        hasMoved = true;
-      }
-
-      if (!hasMoved) return;
-
       let newLeft = startLeft + deltaX;
       let newTop = startTop + deltaY;
 
       // 限制在窗口范围内
-      // 考虑当前sidebar的尺寸（收缩或展开）
       const width = sidebar.offsetWidth;
       const height = sidebar.offsetHeight;
       const maxLeft = window.innerWidth - width;
@@ -368,19 +508,11 @@
       sidebar.style.top = newTop + 'px';
     });
 
-    document.addEventListener('mouseup', (e) => {
+    document.addEventListener('mouseup', () => {
       if (isDragging) {
-        // 如果是点击（没有移动），且处于收缩状态，则展开
-        if (!hasMoved && sidebar.classList.contains('collapsed')) {
-          sidebar.classList.remove('collapsed');
-        }
-
         isDragging = false;
         sidebar.classList.remove('dragging');
-
-        if (hasMoved) {
-          savePosition(sidebar);
-        }
+        savePosition(sidebar);
       }
     });
 
@@ -420,47 +552,65 @@
     'gemini.google.com': {
       userQuery: 'user-query',
       textSelector: '.query-text-line',
-      container: '.conversation-container'
+      container: '.conversation-container',
+      aiResponse: 'model-response',
+      aiTextSelector: '.model-response-text'
     },
     'chat.openai.com': {
       userQuery: '[data-message-author-role="user"]',
       textSelector: '.whitespace-pre-wrap',
-      container: '[data-message-id]'
+      container: '[data-message-id]',
+      aiResponse: '[data-message-author-role="assistant"]',
+      aiTextSelector: '.whitespace-pre-wrap'
     },
     'chatgpt.com': {
       userQuery: '[data-message-author-role="user"]',
       textSelector: '.whitespace-pre-wrap',
-      container: '[data-message-id]'
+      container: '[data-message-id]',
+      aiResponse: '[data-message-author-role="assistant"]',
+      aiTextSelector: '.whitespace-pre-wrap'
     },
     'claude.ai': {
       userQuery: '[data-testid="user-message"]',
       textSelector: 'p',
-      container: null
+      container: null,
+      aiResponse: '[data-testid="ai-message"]',
+      aiTextSelector: 'p'
     },
     'kimi.moonshot.cn': {
       userQuery: '.chat-message-user',
       textSelector: '.message-content',
-      container: null
+      container: null,
+      aiResponse: '.chat-message-assistant',
+      aiTextSelector: '.message-content'
     },
     'tongyi.aliyun.com': {
       userQuery: '.questionItem',
       textSelector: '.content',
-      container: null
+      container: null,
+      aiResponse: '.answerItem',
+      aiTextSelector: '.content'
     },
     'yiyan.baidu.com': {
       userQuery: '.question-wrapper',
       textSelector: '.text',
-      container: null
+      container: null,
+      aiResponse: '.answer-wrapper',
+      aiTextSelector: '.text'
     },
     'chat.deepseek.com': {
       userQuery: '.fbb737a4',
       textSelector: null,
-      container: null
+      container: null,
+      aiResponse: '.ds-markdown',
+      aiTextSelector: null
     },
     'doubao.com': {
       userQuery: '[class*="user-message"], [class*="human"]',
       textSelector: '[class*="content"], p',
-      container: null
+      container: null,
+      aiResponse: '[class*="assistant-message"], [class*="ai"]',
+      aiTextSelector: '[class*="content"], p'
     }
   };
 
