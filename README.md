@@ -34,7 +34,7 @@
 
 1. **下载项目**
    ```bash
-   git clone https://github.com/你的用户名/geminiHelper.git
+   git clone git@gitee.com:taurusru1/ai-question-list.git
    ```
    或者直接下载 ZIP 并解压
 

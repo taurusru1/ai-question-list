@@ -22,6 +22,7 @@
       <div class="gh-header">
         <span class="gh-title">💬 问题列表</span>
         <div class="gh-actions">
+          <button id="gh-export" title="导出问题">📥</button>
           <button id="gh-refresh" title="刷新">🔄</button>
           <button id="gh-toggle" title="收起">💬</button>
         </div>
@@ -248,6 +249,10 @@
       updateQuestionList();
     });
 
+    document.getElementById('gh-export').addEventListener('click', () => {
+      exportQuestions();
+    });
+
     document.getElementById('gh-search-input').addEventListener('input', (e) => {
       updateQuestionList(e.target.value);
     });
@@ -256,6 +261,54 @@
     initDrag(sidebar);
 
     console.log('[AI问题列表] 侧边栏已创建');
+  }
+
+  // 导出问题列表为Markdown文档
+  function exportQuestions() {
+    const questions = window._ghQuestions || extractQuestions();
+
+    if (questions.length === 0) {
+      alert('暂无问题可导出！');
+      return;
+    }
+
+    // 获取当前网站名称
+    const host = window.location.hostname;
+    let siteName = 'AI对话';
+    if (host.includes('gemini')) siteName = 'Gemini';
+    else if (host.includes('chatgpt') || host.includes('openai')) siteName = 'ChatGPT';
+    else if (host.includes('claude')) siteName = 'Claude';
+    else if (host.includes('kimi')) siteName = 'Kimi';
+    else if (host.includes('tongyi')) siteName = '通义千问';
+    else if (host.includes('yiyan')) siteName = '文心一言';
+    else if (host.includes('deepseek')) siteName = 'DeepSeek';
+    else if (host.includes('doubao')) siteName = '豆包';
+
+    // 生成Markdown内容
+    const now = new Date();
+    const dateStr = now.toLocaleString('zh-CN');
+
+    let markdown = `# ${siteName} 对话问题记录\n\n`;
+    markdown += `> 导出时间：${dateStr}\n`;
+    markdown += `> 问题数量：${questions.length} 个\n\n`;
+    markdown += `---\n\n`;
+
+    questions.forEach((q, idx) => {
+      markdown += `## ${idx + 1}. ${q.text}\n\n`;
+    });
+
+    // 创建并下载文件
+    const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${siteName}_问题记录_${now.toISOString().slice(0, 10)}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    console.log('[AI问题列表] 已导出', questions.length, '个问题');
   }
 
   // 初始化拖拽功能
